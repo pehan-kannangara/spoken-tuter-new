@@ -10,6 +10,12 @@ INTENT_TO_AGENT = {
     "send_candidate_assessment": "recruiter_screening",
     "view_class_analytics": "monitoring_analytics",
     "scheduled_risk_check": "monitoring_analytics",
+    # QA Engine Events (Item Generation, Validation, Lifecycle Management)
+    "generate_item": "qa_workflow",
+    "validate_item": "qa_workflow",
+    "activate_item": "qa_workflow",
+    "monitor_drift": "qa_workflow",
+    "retire_item": "qa_workflow",
 }
 
 

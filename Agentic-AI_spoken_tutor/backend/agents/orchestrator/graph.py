@@ -4,6 +4,7 @@ from backend.agents.assessment_scoring.graph import run_assessment_scoring
 from backend.agents.feedback_pathway.graph import run_feedback_pathway
 from backend.agents.recruiter_screening.graph import run_recruiter_screening
 from backend.agents.monitoring_analytics.graph import run_monitoring_analytics
+from backend.agents.qa_workflow.graph import run_qa_workflow
 
 
 def run_orchestration(user_id: str, role: str, event_type: str, payload: dict) -> dict:
@@ -29,6 +30,8 @@ def run_orchestration(user_id: str, role: str, event_type: str, payload: dict) -
         domain_result = run_feedback_pathway(user_id, payload, context_state["context"])
     elif routed_agent == "recruiter_screening":
         domain_result = run_recruiter_screening(user_id, payload, context_state["context"])
+    elif routed_agent == "qa_workflow":
+        domain_result = run_qa_workflow(user_id, event_type, payload, context_state["context"])
     else:
         domain_result = run_monitoring_analytics(user_id, payload, context_state["context"])
 
