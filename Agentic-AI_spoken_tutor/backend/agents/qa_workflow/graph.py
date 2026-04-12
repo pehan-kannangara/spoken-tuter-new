@@ -5,18 +5,23 @@ LangGraph-based orchestration for QA workflows.
 Integrates item generation, validation, calibration, and monitoring.
 """
 
-from typing import Dict, Any
 from datetime import datetime
 import uuid
 
-from backend.qa_engine.config import ItemStatus, ValidationGate
+from backend.qa_engine.config import ItemStatus
 from backend.qa_engine.schemas import (
     QuestionItem,
-    ItemSpecification,
-    QAValidationReport,
 )
 from backend.qa_engine.orchestrator import run_qa_validation_pipeline, should_auto_activate
 from backend.qa_engine.lifecycle import create_lifecycle, apply_validation_report, transition_item
+from backend.qa_engine.store import (
+    get_item,
+    get_lifecycle,
+    list_active_items,
+    save_item,
+    save_lifecycle,
+    save_report,
+)
 
 
 def run_qa_workflow(user_id: str, event_type: str, payload: dict, context: dict) -> dict:
@@ -68,13 +73,20 @@ def handle_generate_item(user_id: str, payload: dict, context: dict) -> dict:
             "user_id": user_id,
         }
     
-    # TODO: In production, call LLM generation service here
-    # For now, return stub
+    # MVP generation: deterministic starter prompt. This will be replaced by LLM generation.
+    instruction = payload.get(
+        "instruction",
+        f"Describe your experience with {spec_data.get('domain', 'this topic')} and explain your main opinion.",
+    )
+    prompt_text = payload.get("prompt_text")
+    if spec_data.get("task_type") == "part_2" and not prompt_text:
+        prompt_text = "You should say: what happened, where it happened, who was involved, and why it was meaningful."
     
     item = QuestionItem(
         item_id=str(uuid.uuid4()),
         spec_id=spec_id,
-        instruction="[Generated instruction placeholder]",
+        instruction=instruction,
+        prompt_text=prompt_text,
         pathway=spec_data.get("pathway"),
         target_level=spec_data.get("target_level"),
         task_type=spec_data.get("task_type"),
@@ -86,6 +98,8 @@ def handle_generate_item(user_id: str, payload: dict, context: dict) -> dict:
     )
     
     lifecycle = create_lifecycle(item, user_id)
+    save_item(item)
+    save_lifecycle(lifecycle)
     
     return {
         "status": "ok",
@@ -111,19 +125,30 @@ def handle_validate_item(user_id: str, payload: dict, context: dict) -> dict:
         - Recommended next action
     """
     
+    item_id = payload.get("item_id")
     item_data = payload.get("item_data")
-    if not item_data:
+    item = None
+    if item_id:
+        item = get_item(item_id)
+    elif item_data:
+        item = QuestionItem(**item_data)
+
+    if not item:
         return {
             "status": "error",
-            "message": "item_data required",
+            "message": "item_id or item_data required",
             "user_id": user_id,
         }
-    
-    # Reconstruct item from dict
-    item = QuestionItem(**item_data)
-    
-    # TODO: In production, fetch existing_active_items from DB
-    existing_items = []
+
+    lifecycle = get_lifecycle(item.item_id)
+    if not lifecycle:
+        return {
+            "status": "error",
+            "message": f"Lifecycle not found for item: {item.item_id}",
+            "user_id": user_id,
+        }
+
+    existing_items = list_active_items(exclude_item_id=item.item_id)
     
     # Run validation pipeline
     report = run_qa_validation_pipeline(
@@ -132,6 +157,15 @@ def handle_validate_item(user_id: str, payload: dict, context: dict) -> dict:
         run_all_gates=True,
         user_id=user_id,
     )
+    save_report(report)
+
+    transitioned, transition_message, updated_lifecycle = apply_validation_report(
+        lifecycle=lifecycle,
+        report=report,
+        user_id=user_id,
+    )
+    if transitioned:
+        save_lifecycle(updated_lifecycle)
     
     # Determine next action
     if report.overall_pass:
@@ -143,10 +177,14 @@ def handle_validate_item(user_id: str, payload: dict, context: dict) -> dict:
         "status": "ok",
         "message": f"Validation complete. Quality score: {report.quality_score:.1f}/100",
         "item_id": item.item_id,
+        "report_id": report.report_id,
         "report": report.dict(),
         "recommended_action": report.recommended_action,
         "next_step": next_step,
         "quality_score": report.quality_score,
+        "lifecycle_transitioned": transitioned,
+        "lifecycle_message": transition_message,
+        "current_status": getattr(updated_lifecycle.current_status, "value", str(updated_lifecycle.current_status)),
     }
 
 
@@ -164,15 +202,25 @@ def handle_activate_item(user_id: str, payload: dict, context: dict) -> dict:
     
     from backend.qa_engine.lifecycle import ItemLifecycle
     
+    item_id = payload.get("item_id")
     lifecycle_data = payload.get("lifecycle_data")
-    if not lifecycle_data:
+    if item_id:
+        lifecycle = get_lifecycle(item_id)
+    elif lifecycle_data:
+        lifecycle = ItemLifecycle(**lifecycle_data)
+    else:
         return {
             "status": "error",
-            "message": "lifecycle_data required",
+            "message": "item_id or lifecycle_data required",
             "user_id": user_id,
         }
-    
-    lifecycle = ItemLifecycle(**lifecycle_data)
+
+    if not lifecycle:
+        return {
+            "status": "error",
+            "message": f"Lifecycle not found for item: {item_id}",
+            "user_id": user_id,
+        }
     
     success, message, updated = transition_item(
         lifecycle,
@@ -182,9 +230,7 @@ def handle_activate_item(user_id: str, payload: dict, context: dict) -> dict:
     )
     
     if success:
-        # TODO: In production, save updated lifecycle to DB
-        # TODO: Add item to active question bank
-        pass
+        save_lifecycle(updated)
     
     return {
         "status": "ok" if success else "error",
@@ -234,17 +280,27 @@ def handle_retire_item(user_id: str, payload: dict, context: dict) -> dict:
     
     from backend.qa_engine.lifecycle import ItemLifecycle
     
+    item_id = payload.get("item_id")
     lifecycle_data = payload.get("lifecycle_data")
     reason = payload.get("reason", "Retired by system")
     
-    if not lifecycle_data:
+    if item_id:
+        lifecycle = get_lifecycle(item_id)
+    elif lifecycle_data:
+        lifecycle = ItemLifecycle(**lifecycle_data)
+    else:
         return {
             "status": "error",
-            "message": "lifecycle_data required",
+            "message": "item_id or lifecycle_data required",
             "user_id": user_id,
         }
-    
-    lifecycle = ItemLifecycle(**lifecycle_data)
+
+    if not lifecycle:
+        return {
+            "status": "error",
+            "message": f"Lifecycle not found for item: {item_id}",
+            "user_id": user_id,
+        }
     
     success, message, updated = transition_item(
         lifecycle,
@@ -254,8 +310,7 @@ def handle_retire_item(user_id: str, payload: dict, context: dict) -> dict:
     )
     
     if success:
-        # TODO: In production, remove from active bank, archive
-        pass
+        save_lifecycle(updated)
     
     return {
         "status": "ok" if success else "error",

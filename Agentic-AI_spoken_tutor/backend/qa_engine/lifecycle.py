@@ -20,8 +20,8 @@ from backend.qa_engine.schemas import (
 
 # Valid state transitions
 VALID_TRANSITIONS = {
-    ItemStatus.DRAFT: [ItemStatus.AUTO_VALIDATED, ItemStatus.REJECTED],
-    ItemStatus.AUTO_VALIDATED: [ItemStatus.EXPERT_REVIEW_PENDING, ItemStatus.EXPERT_APPROVED, ItemStatus.REJECTED],
+    ItemStatus.DRAFT: [ItemStatus.AUTO_VALIDATED, ItemStatus.EXPERT_REVIEW_PENDING, ItemStatus.REJECTED],
+    ItemStatus.AUTO_VALIDATED: [ItemStatus.ACTIVE, ItemStatus.EXPERT_REVIEW_PENDING, ItemStatus.EXPERT_APPROVED, ItemStatus.REJECTED],
     ItemStatus.EXPERT_REVIEW_PENDING: [ItemStatus.EXPERT_APPROVED, ItemStatus.REJECTED],
     ItemStatus.EXPERT_APPROVED: [ItemStatus.SHADOW_TESTING, ItemStatus.REJECTED],
     ItemStatus.SHADOW_TESTING: [ItemStatus.SHADOW_CALIBRATED, ItemStatus.REJECTED],
