@@ -1,6 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from backend.api.schemas.orchestration import OrchestrationRequest, OrchestrationResponse
 from backend.api.schemas.qa import (
@@ -64,6 +67,56 @@ app = FastAPI(
     ),
     lifespan=lifespan,
 )
+
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+FRONTEND_DIR = BASE_DIR / "frontend"
+
+if FRONTEND_DIR.exists():
+    app.mount("/frontend", StaticFiles(directory=str(FRONTEND_DIR)), name="frontend")
+
+
+@app.get("/")
+def frontend_index():
+    index_file = FRONTEND_DIR / "index.html"
+    if not index_file.exists():
+        return {"status": "ok", "message": "Frontend not found. Use /docs for API."}
+    return FileResponse(index_file)
+
+
+@app.get("/meta/pathways")
+def pathway_metadata() -> dict:
+    """Return supported pathways and profile requirements for frontend forms."""
+    return {
+        "pathways": ["ielts", "cefr", "business_english"],
+        "goals": [
+            "ielts_exam",
+            "general_improvement",
+            "for_school",
+            "working_purpose",
+            "interview_preparation",
+            "business_communication",
+        ],
+        "pathway_to_goal": {
+            "ielts": ["ielts_exam", "working_purpose", "interview_preparation"],
+            "cefr": ["general_improvement", "for_school"],
+            "business_english": ["business_communication", "working_purpose", "interview_preparation"],
+        },
+        "business_profile_fields": [
+            "industry_sector",
+            "job_function",
+            "communication_contexts",
+            "client_facing",
+            "weekly_speaking_hours",
+            "target_use_case",
+            "timeline_weeks",
+        ],
+        "research_basis": {
+            "cefr_mediation": "Council of Europe CEFR companion volume business communication descriptors",
+            "ielts_workplace_transfer": "IELTS speaking rubric dimensions adapted for workplace communication",
+            "business_communication": "Workplace English contexts: meetings, presentations, negotiations, client calls",
+        },
+    }
 
 
 @app.get("/health")
@@ -160,6 +213,7 @@ def register_learner(req: RegisterLearnerRequest) -> dict:
         target_band=req.target_band,
         target_cefr=req.target_cefr,
         class_code=req.class_code,
+        business_profile=req.business_profile.model_dump() if req.business_profile else None,
     )
     return {"status": "ok", "learner": profile.model_dump()}
 

@@ -903,10 +903,129 @@ CEFR_QUESTIONS: list[dict] = [
 ]
 
 # ---------------------------------------------------------------------------
+# BUSINESS ENGLISH — Workplace speaking tasks (B1–C1 transfer profile)
+# Research basis: CEFR mediation descriptors + workplace communication tasks
+# ---------------------------------------------------------------------------
+BUSINESS_ENGLISH_QUESTIONS: list[dict] = [
+    {
+        "item_id": "QB-BIZ-001",
+        "spec_id": "SPEC-BIZ-MEETING",
+        "instruction": "Introduce yourself in a project kickoff meeting and explain your role responsibilities.",
+        "prompt_text": None,
+        "pathway": "business_english",
+        "target_level": "b1",
+        "task_type": "business_meeting_intro",
+        "domain": "business",
+        "skill_focus": "fluency",
+        "generated_by": "seed_bank",
+        "generation_timestamp": datetime(2025, 1, 1).isoformat(),
+        "status": "active",
+    },
+    {
+        "item_id": "QB-BIZ-002",
+        "spec_id": "SPEC-BIZ-STATUS",
+        "instruction": "Give a one-minute status update about a delayed task and propose a recovery plan.",
+        "prompt_text": None,
+        "pathway": "business_english",
+        "target_level": "b1",
+        "task_type": "business_status_update",
+        "domain": "business",
+        "skill_focus": "coherence",
+        "generated_by": "seed_bank",
+        "generation_timestamp": datetime(2025, 1, 1).isoformat(),
+        "status": "active",
+    },
+    {
+        "item_id": "QB-BIZ-003",
+        "spec_id": "SPEC-BIZ-CLIENT",
+        "instruction": "Respond to a client complaint call and show how you would clarify the issue and next steps.",
+        "prompt_text": None,
+        "pathway": "business_english",
+        "target_level": "b2",
+        "task_type": "business_client_call",
+        "domain": "business",
+        "skill_focus": "coherence",
+        "generated_by": "seed_bank",
+        "generation_timestamp": datetime(2025, 1, 1).isoformat(),
+        "status": "active",
+    },
+    {
+        "item_id": "QB-BIZ-004",
+        "spec_id": "SPEC-BIZ-PRESENTATION",
+        "instruction": "Deliver a short presentation opening for a new product and explain its key value to customers.",
+        "prompt_text": None,
+        "pathway": "business_english",
+        "target_level": "b2",
+        "task_type": "business_presentation",
+        "domain": "business",
+        "skill_focus": "lexical_resource",
+        "generated_by": "seed_bank",
+        "generation_timestamp": datetime(2025, 1, 1).isoformat(),
+        "status": "active",
+    },
+    {
+        "item_id": "QB-BIZ-005",
+        "spec_id": "SPEC-BIZ-NEGOTIATION",
+        "instruction": "Negotiate a delivery timeline with a vendor while maintaining a cooperative tone.",
+        "prompt_text": None,
+        "pathway": "business_english",
+        "target_level": "b2",
+        "task_type": "business_negotiation",
+        "domain": "business",
+        "skill_focus": "coherence",
+        "generated_by": "seed_bank",
+        "generation_timestamp": datetime(2025, 1, 1).isoformat(),
+        "status": "active",
+    },
+    {
+        "item_id": "QB-BIZ-006",
+        "spec_id": "SPEC-BIZ-INTERVIEW",
+        "instruction": "Answer the interview question: 'Tell me about a time you handled a difficult stakeholder.'",
+        "prompt_text": None,
+        "pathway": "business_english",
+        "target_level": "c1",
+        "task_type": "business_interview_behavioral",
+        "domain": "business",
+        "skill_focus": "mixed",
+        "generated_by": "seed_bank",
+        "generation_timestamp": datetime(2025, 1, 1).isoformat(),
+        "status": "active",
+    },
+    {
+        "item_id": "QB-BIZ-007",
+        "spec_id": "SPEC-BIZ-LEADERSHIP",
+        "instruction": "Explain how you would persuade cross-functional teams to adopt a new process.",
+        "prompt_text": None,
+        "pathway": "business_english",
+        "target_level": "c1",
+        "task_type": "business_leadership_pitch",
+        "domain": "business",
+        "skill_focus": "coherence",
+        "generated_by": "seed_bank",
+        "generation_timestamp": datetime(2025, 1, 1).isoformat(),
+        "status": "active",
+    },
+    {
+        "item_id": "QB-BIZ-008",
+        "spec_id": "SPEC-BIZ-RISK",
+        "instruction": "Present a risk update to senior management and justify your recommendation.",
+        "prompt_text": None,
+        "pathway": "business_english",
+        "target_level": "c1",
+        "task_type": "business_executive_update",
+        "domain": "business",
+        "skill_focus": "mixed",
+        "generated_by": "seed_bank",
+        "generation_timestamp": datetime(2025, 1, 1).isoformat(),
+        "status": "active",
+    },
+]
+
+# ---------------------------------------------------------------------------
 # Master list — all seed items combined
 # ---------------------------------------------------------------------------
 ALL_SEED_QUESTIONS: list[dict] = (
-    IELTS_PART_1 + IELTS_PART_2 + IELTS_PART_3 + CEFR_QUESTIONS
+    IELTS_PART_1 + IELTS_PART_2 + IELTS_PART_3 + CEFR_QUESTIONS + BUSINESS_ENGLISH_QUESTIONS
 )
 
 # Convenience look-up maps

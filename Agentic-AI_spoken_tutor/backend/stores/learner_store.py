@@ -21,6 +21,18 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
+class BusinessEnglishProfile(BaseModel):
+    """Research-aligned profile for workplace speaking improvement."""
+
+    industry_sector: str
+    job_function: str
+    communication_contexts: list[str] = Field(default_factory=list)
+    client_facing: bool = False
+    weekly_speaking_hours: int = 0
+    target_use_case: str = "meeting_participation"
+    timeline_weeks: int = 12
+
+
 # ============================================================================
 # DATA MODELS
 # ============================================================================
@@ -30,12 +42,13 @@ class LearnerProfile(BaseModel):
     name: str
     email: str
     role: str                       # school_student | university_student | working_professional
-    pathway: str                    # ielts | cefr
-    goal: str                       # ielts_exam | general_improvement | for_school | working_purpose | interview_preparation
+    pathway: str                    # ielts | cefr | business_english
+    goal: str                       # ielts_exam | general_improvement | for_school | working_purpose | interview_preparation | business_communication
     current_band: float = 0.0       # IELTS band (1–9); 0 = not yet assessed
     current_cefr: str = "unknown"   # a1 | a2 | b1 | b2 | c1 | c2
     target_band: Optional[float] = None
     target_cefr: Optional[str] = None
+    business_profile: Optional[BusinessEnglishProfile] = None
     class_id: Optional[str] = None  # populated if joined via class code
     session_ids: list[str] = Field(default_factory=list)
     streak_days: int = 0
@@ -153,6 +166,7 @@ def create_learner(
     target_band: Optional[float] = None,
     target_cefr: Optional[str] = None,
     class_code: Optional[str] = None,
+    business_profile: Optional[dict] = None,
 ) -> LearnerProfile:
     with _L:
         learner_id = str(uuid.uuid4())
@@ -166,6 +180,7 @@ def create_learner(
             goal=goal,
             target_band=target_band,
             target_cefr=target_cefr,
+            business_profile=BusinessEnglishProfile(**business_profile) if business_profile else None,
             class_id=class_id,
         )
         _LEARNERS[learner_id] = profile

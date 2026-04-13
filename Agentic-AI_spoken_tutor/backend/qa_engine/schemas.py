@@ -38,6 +38,7 @@ class Pathway(str, Enum):
     """Learning pathways."""
     CEFR = "cefr"
     IELTS = "ielts"
+    BUSINESS_ENGLISH = "business_english"
 
 
 class IELTSSpeakingPart(str, Enum):
