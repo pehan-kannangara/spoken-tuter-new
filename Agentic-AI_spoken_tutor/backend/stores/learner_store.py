@@ -1,24 +1,23 @@
-"""
-Learner Store
-
-Thread-safe in-memory persistence for:
-  - LearnerProfile   (registration info + current level)
-  - PracticeSession  (question delivery, responses, scores)
-  - ProgressRecord   (timestamped band / CEFR snapshots)
-  - Class            (teacher → learner grouping)
-  - ScreeningPack    (recruiter → candidate screening)
-
-Swap the backing dicts for PostgreSQL tables in production.
-"""
+"""Database-backed persistence for learners, sessions, classes, and screening."""
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from datetime import datetime
-from threading import Lock
-from typing import Optional
+from typing import Optional, cast
 
 from pydantic import BaseModel, Field
+from sqlalchemy import select
+
+from backend.db.models import (
+        ClassORM,
+        LearnerProfileORM,
+        PracticeSessionORM,
+        ProgressRecordORM,
+        ScreeningPackORM,
+)
+from backend.db.session import db_session
 
 
 class BusinessEnglishProfile(BaseModel):
@@ -137,20 +136,83 @@ class ScreeningPack(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-# ============================================================================
-# THREAD-SAFE IN-MEMORY STORES
-# ============================================================================
+def _learner_from_orm(row: LearnerProfileORM) -> LearnerProfile:
+    return LearnerProfile(
+        learner_id=row.learner_id,
+        name=row.name,
+        email=row.email,
+        role=row.role,
+        pathway=row.pathway,
+        goal=row.goal,
+        current_band=row.current_band,
+        current_cefr=row.current_cefr,
+        target_band=row.target_band,
+        target_cefr=row.target_cefr,
+        business_profile=BusinessEnglishProfile(**row.business_profile_json) if row.business_profile_json else None,
+        class_id=row.class_id,
+        session_ids=list(row.session_ids_json or []),
+        streak_days=row.streak_days,
+        badges=list(row.badges_json or []),
+        created_at=row.created_at,
+        last_active_at=row.last_active_at,
+    )
 
-_LEARNERS:  dict[str, LearnerProfile]  = {}
-_SESSIONS:  dict[str, PracticeSession] = {}
-_RESPONSES: dict[str, SubmittedResponse] = {}
-_SCORES:    dict[str, AssessmentScore]  = {}
-_PROGRESS:  dict[str, list[ProgressRecord]] = {}   # learner_id → records
-_CLASSES:   dict[str, Class]            = {}
-_CLASS_CODES: dict[str, str]            = {}        # code → class_id
-_PACKS:     dict[str, ScreeningPack]    = {}
 
-_L = Lock()
+def _response_dict_to_models(payload: dict | None) -> dict[int, SubmittedResponse]:
+    data = payload or {}
+    return {int(k): SubmittedResponse.model_validate(v) for k, v in data.items()}
+
+
+def _score_dict_to_models(payload: dict | None) -> dict[int, AssessmentScore]:
+    data = payload or {}
+    return {int(k): AssessmentScore.model_validate(v) for k, v in data.items()}
+
+
+def _session_from_orm(row: PracticeSessionORM) -> PracticeSession:
+    return PracticeSession(
+        session_id=row.session_id,
+        learner_id=row.learner_id,
+        pathway=row.pathway,
+        session_type=row.session_type,
+        status=row.status,
+        question_ids=list(row.question_ids_json or []),
+        current_index=row.current_index,
+        responses=_response_dict_to_models(row.responses_json),
+        scores=_score_dict_to_models(row.scores_json),
+        started_at=row.started_at,
+        completed_at=row.completed_at,
+        overall_band=row.overall_band,
+        overall_cefr=row.overall_cefr,
+        band_before_session=row.band_before_session,
+    )
+
+
+def _class_from_orm(row: ClassORM) -> Class:
+    return Class(
+        class_id=row.class_id,
+        teacher_id=row.teacher_id,
+        class_name=row.class_name,
+        class_code=row.class_code,
+        learner_ids=list(row.learner_ids_json or []),
+        created_at=row.created_at,
+    )
+
+
+def _pack_from_orm(row: ScreeningPackORM) -> ScreeningPack:
+    return ScreeningPack(
+        pack_id=row.pack_id,
+        recruiter_id=row.recruiter_id,
+        role_name=row.role_name,
+        department=row.department,
+        job_level=row.job_level,
+        min_band=row.min_band,
+        min_cefr=row.min_cefr,
+        questions_per_candidate=row.questions_per_candidate,
+        candidate_ids=list(row.candidate_ids_json or []),
+        completed_session_ids=list(row.completed_session_ids_json or []),
+        status=row.status,
+        created_at=row.created_at,
+    )
 
 
 # ============================================================================
@@ -168,10 +230,12 @@ def create_learner(
     class_code: Optional[str] = None,
     business_profile: Optional[dict] = None,
 ) -> LearnerProfile:
-    with _L:
+    with db_session() as db:
         learner_id = str(uuid.uuid4())
-        class_id = _CLASS_CODES.get(class_code) if class_code else None
-        profile = LearnerProfile(
+        class_row = None
+        if class_code:
+            class_row = db.scalar(select(ClassORM).where(ClassORM.class_code == class_code))
+        row = LearnerProfileORM(
             learner_id=learner_id,
             name=name,
             email=email,
@@ -180,34 +244,43 @@ def create_learner(
             goal=goal,
             target_band=target_band,
             target_cefr=target_cefr,
-            business_profile=BusinessEnglishProfile(**business_profile) if business_profile else None,
-            class_id=class_id,
+            business_profile_json=business_profile,
+            class_id=class_row.class_id if class_row else None,
+            session_ids_json=[],
+            badges_json=[],
+            created_at=datetime.utcnow(),
+            last_active_at=datetime.utcnow(),
         )
-        _LEARNERS[learner_id] = profile
-        if class_id and class_id in _CLASSES:
-            _CLASSES[class_id].learner_ids.append(learner_id)
-        return profile
+        db.add(row)
+        if class_row:
+            learner_ids = list(class_row.learner_ids_json or [])
+            learner_ids.append(learner_id)
+            class_row.learner_ids_json = learner_ids
+        db.flush()
+        return _learner_from_orm(row)
 
 
 def get_learner(learner_id: str) -> Optional[LearnerProfile]:
-    with _L:
-        return _LEARNERS.get(learner_id)
+    with db_session() as db:
+        row = db.scalar(select(LearnerProfileORM).where(LearnerProfileORM.learner_id == learner_id))
+        return _learner_from_orm(row) if row else None
 
 
 def update_learner_level(learner_id: str, band: float, cefr: str) -> bool:
-    with _L:
-        profile = _LEARNERS.get(learner_id)
-        if not profile:
+    with db_session() as db:
+        row = db.scalar(select(LearnerProfileORM).where(LearnerProfileORM.learner_id == learner_id))
+        if not row:
             return False
-        profile.current_band = band
-        profile.current_cefr = cefr
-        profile.last_active_at = datetime.utcnow()
+        row.current_band = band
+        row.current_cefr = cefr
+        row.last_active_at = datetime.utcnow()
         return True
 
 
 def get_all_learners() -> list[LearnerProfile]:
-    with _L:
-        return list(_LEARNERS.values())
+    with db_session() as db:
+        rows = db.scalars(select(LearnerProfileORM)).all()
+        return [_learner_from_orm(row) for row in rows]
 
 
 # ============================================================================
@@ -221,87 +294,114 @@ def create_session(
     question_ids: list[str],
     band_before: Optional[float] = None,
 ) -> PracticeSession:
-    with _L:
+    with db_session() as db:
         session_id = str(uuid.uuid4())
-        session = PracticeSession(
+        row = PracticeSessionORM(
             session_id=session_id,
             learner_id=learner_id,
             pathway=pathway,
             session_type=session_type,
-            question_ids=question_ids,
+            status="active",
+            question_ids_json=question_ids,
+            current_index=0,
+            responses_json={},
+            scores_json={},
+            started_at=datetime.utcnow(),
             band_before_session=band_before,
         )
-        _SESSIONS[session_id] = session
-        learner = _LEARNERS.get(learner_id)
+        db.add(row)
+        learner = db.scalar(select(LearnerProfileORM).where(LearnerProfileORM.learner_id == learner_id))
         if learner:
-            learner.session_ids.append(session_id)
+            session_ids = list(learner.session_ids_json or [])
+            session_ids.append(session_id)
+            learner.session_ids_json = session_ids
             learner.last_active_at = datetime.utcnow()
-        return session
+        db.flush()
+        return _session_from_orm(row)
 
 
 def get_session(session_id: str) -> Optional[PracticeSession]:
-    with _L:
-        return _SESSIONS.get(session_id)
+    with db_session() as db:
+        row = db.scalar(select(PracticeSessionORM).where(PracticeSessionORM.session_id == session_id))
+        return _session_from_orm(row) if row else None
 
 
 def advance_session(session_id: str) -> Optional[PracticeSession]:
     """Move to next question; mark completed when all questions answered."""
-    with _L:
-        session = _SESSIONS.get(session_id)
-        if not session or session.status != "active":
-            return session
-        session.current_index += 1
-        if session.current_index >= len(session.question_ids):
-            _complete_session(session)
-        return session
+    with db_session() as db:
+        row = db.scalar(select(PracticeSessionORM).where(PracticeSessionORM.session_id == session_id))
+        if not row:
+            return None
+        if row.status != "active":
+            return _session_from_orm(row)
+        row.current_index += 1
+        if row.current_index >= len(row.question_ids_json or []):
+            _complete_session(db, row)
+        db.flush()
+        return _session_from_orm(row)
 
 
 def save_response(response: SubmittedResponse) -> None:
-    with _L:
-        _RESPONSES[response.response_id] = response
-        session = _SESSIONS.get(response.session_id)
-        if session:
-            session.responses[response.question_index] = response
+    with db_session() as db:
+        row = db.scalar(select(PracticeSessionORM).where(PracticeSessionORM.session_id == response.session_id))
+        if not row:
+            return
+        responses = dict(row.responses_json or {})
+        responses[str(response.question_index)] = response.model_dump(mode="json")
+        row.responses_json = responses
 
 
 def save_score(score: AssessmentScore) -> None:
-    with _L:
-        _SCORES[score.score_id] = score
-        session = _SESSIONS.get(score.session_id)
-        if session:
-            session.scores[score.question_index] = score
-            # If all questions scored, compute overall
-            if len(session.scores) >= len(session.question_ids):
-                bands = [s.overall_band for s in session.scores.values()]
-                avg = round(sum(bands) / len(bands) * 2) / 2  # round to 0.5
-                session.overall_band = avg
-                session.overall_cefr = band_to_cefr(avg)
-                if session.status == "active":
-                    _complete_session(session)
+    with db_session() as db:
+        row = db.scalar(select(PracticeSessionORM).where(PracticeSessionORM.session_id == score.session_id))
+        if not row:
+            return
+        scores = dict(row.scores_json or {})
+        scores[str(score.question_index)] = score.model_dump(mode="json")
+        row.scores_json = scores
+        if len(scores) >= len(row.question_ids_json or []):
+            bands = [item["overall_band"] for item in scores.values()]
+            avg = round(sum(bands) / len(bands) * 2) / 2
+            row.overall_band = avg
+            row.overall_cefr = band_to_cefr(avg)
+            if row.status == "active":
+                _complete_session(db, row)
 
 
-def _complete_session(session: PracticeSession) -> None:
-    """Internal: mark session done and record progress (must be called under lock)."""
-    session.status = "completed"
-    session.completed_at = datetime.utcnow()
-    if session.overall_band:
-        record = ProgressRecord(
+def _complete_session(db, row: PracticeSessionORM) -> None:
+    row.status = "completed"
+    row.completed_at = datetime.utcnow()
+    if row.overall_band is None:
+        scores = dict(row.scores_json or {})
+        if scores:
+            bands = [item["overall_band"] for item in scores.values()]
+            row.overall_band = round(sum(bands) / len(bands) * 2) / 2
+            if row.overall_band is not None:
+                row.overall_cefr = band_to_cefr(cast(float, row.overall_band))
+    if row.overall_band is not None:
+        db.add(ProgressRecordORM(
             record_id=str(uuid.uuid4()),
-            learner_id=session.learner_id,
-            session_id=session.session_id,
-            band=session.overall_band,
-            cefr=session.overall_cefr or "unknown",
-        )
-        _PROGRESS.setdefault(session.learner_id, []).append(record)
-        learner = _LEARNERS.get(session.learner_id)
+            learner_id=row.learner_id,
+            session_id=row.session_id,
+            band=row.overall_band,
+            cefr=row.overall_cefr or "unknown",
+            recorded_at=datetime.utcnow(),
+        ))
+        learner = db.scalar(select(LearnerProfileORM).where(LearnerProfileORM.learner_id == row.learner_id))
         if learner:
-            learner.current_band = session.overall_band
-            learner.current_cefr = session.overall_cefr or learner.current_cefr
+            learner.current_band = row.overall_band
+            learner.current_cefr = row.overall_cefr or learner.current_cefr
+            learner.last_active_at = datetime.utcnow()
 
 
 def get_learner_sessions(learner_id: str) -> list[PracticeSession]:
-    with _L:
-        return [s for s in _SESSIONS.values() if s.learner_id == learner_id]
+    with db_session() as db:
+        rows = db.scalars(
+            select(PracticeSessionORM)
+            .where(PracticeSessionORM.learner_id == learner_id)
+            .order_by(PracticeSessionORM.started_at)
+        ).all()
+        return [_session_from_orm(row) for row in rows]
 
 
 # ============================================================================
@@ -309,8 +409,23 @@ def get_learner_sessions(learner_id: str) -> list[PracticeSession]:
 # ============================================================================
 
 def get_progress(learner_id: str) -> list[ProgressRecord]:
-    with _L:
-        return list(_PROGRESS.get(learner_id, []))
+    with db_session() as db:
+        rows = db.scalars(
+            select(ProgressRecordORM)
+            .where(ProgressRecordORM.learner_id == learner_id)
+            .order_by(ProgressRecordORM.recorded_at)
+        ).all()
+        return [
+            ProgressRecord(
+                record_id=row.record_id,
+                learner_id=row.learner_id,
+                session_id=row.session_id,
+                band=row.band,
+                cefr=row.cefr,
+                recorded_at=row.recorded_at,
+            )
+            for row in rows
+        ]
 
 
 # ============================================================================
@@ -318,32 +433,34 @@ def get_progress(learner_id: str) -> list[ProgressRecord]:
 # ============================================================================
 
 def create_class(teacher_id: str, class_name: str) -> Class:
-    with _L:
+    with db_session() as db:
         class_id = str(uuid.uuid4())
-        code = _generate_class_code(class_id)
-        cls = Class(
+        row = ClassORM(
             class_id=class_id,
             teacher_id=teacher_id,
             class_name=class_name,
-            class_code=code,
+            class_code=_generate_class_code(class_id),
+            learner_ids_json=[],
+            created_at=datetime.utcnow(),
         )
-        _CLASSES[class_id] = cls
-        _CLASS_CODES[code] = class_id
-        return cls
+        db.add(row)
+        db.flush()
+        return _class_from_orm(row)
 
 
 def get_class(class_id: str) -> Optional[Class]:
-    with _L:
-        return _CLASSES.get(class_id)
+    with db_session() as db:
+        row = db.scalar(select(ClassORM).where(ClassORM.class_id == class_id))
+        return _class_from_orm(row) if row else None
 
 
 def get_teacher_classes(teacher_id: str) -> list[Class]:
-    with _L:
-        return [c for c in _CLASSES.values() if c.teacher_id == teacher_id]
+    with db_session() as db:
+        rows = db.scalars(select(ClassORM).where(ClassORM.teacher_id == teacher_id)).all()
+        return [_class_from_orm(row) for row in rows]
 
 
 def _generate_class_code(seed: str) -> str:
-    import hashlib
     return hashlib.md5(seed.encode()).hexdigest()[:6].upper()
 
 
@@ -360,10 +477,9 @@ def create_screening_pack(
     min_cefr: str,
     questions_per_candidate: int = 5,
 ) -> ScreeningPack:
-    with _L:
-        pack_id = str(uuid.uuid4())
-        pack = ScreeningPack(
-            pack_id=pack_id,
+    with db_session() as db:
+        row = ScreeningPackORM(
+            pack_id=str(uuid.uuid4()),
             recruiter_id=recruiter_id,
             role_name=role_name,
             department=department,
@@ -371,38 +487,49 @@ def create_screening_pack(
             min_band=min_band,
             min_cefr=min_cefr,
             questions_per_candidate=questions_per_candidate,
+            candidate_ids_json=[],
+            completed_session_ids_json=[],
+            status="active",
+            created_at=datetime.utcnow(),
         )
-        _PACKS[pack_id] = pack
-        return pack
+        db.add(row)
+        db.flush()
+        return _pack_from_orm(row)
 
 
 def get_screening_pack(pack_id: str) -> Optional[ScreeningPack]:
-    with _L:
-        return _PACKS.get(pack_id)
+    with db_session() as db:
+        row = db.scalar(select(ScreeningPackORM).where(ScreeningPackORM.pack_id == pack_id))
+        return _pack_from_orm(row) if row else None
 
 
 def get_recruiter_packs(recruiter_id: str) -> list[ScreeningPack]:
-    with _L:
-        return [p for p in _PACKS.values() if p.recruiter_id == recruiter_id]
+    with db_session() as db:
+        rows = db.scalars(select(ScreeningPackORM).where(ScreeningPackORM.recruiter_id == recruiter_id)).all()
+        return [_pack_from_orm(row) for row in rows]
 
 
 def add_candidate_to_pack(pack_id: str, learner_id: str) -> bool:
-    with _L:
-        pack = _PACKS.get(pack_id)
-        if not pack:
+    with db_session() as db:
+        row = db.scalar(select(ScreeningPackORM).where(ScreeningPackORM.pack_id == pack_id))
+        if not row:
             return False
-        if learner_id not in pack.candidate_ids:
-            pack.candidate_ids.append(learner_id)
+        candidate_ids = list(row.candidate_ids_json or [])
+        if learner_id not in candidate_ids:
+            candidate_ids.append(learner_id)
+            row.candidate_ids_json = candidate_ids
         return True
 
 
 def record_screening_session(pack_id: str, session_id: str) -> bool:
-    with _L:
-        pack = _PACKS.get(pack_id)
-        if not pack:
+    with db_session() as db:
+        row = db.scalar(select(ScreeningPackORM).where(ScreeningPackORM.pack_id == pack_id))
+        if not row:
             return False
-        if session_id not in pack.completed_session_ids:
-            pack.completed_session_ids.append(session_id)
+        session_ids = list(row.completed_session_ids_json or [])
+        if session_id not in session_ids:
+            session_ids.append(session_id)
+            row.completed_session_ids_json = session_ids
         return True
 
 

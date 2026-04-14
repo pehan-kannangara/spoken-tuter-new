@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -17,6 +17,12 @@ from backend.api.schemas.learner import (
     StartSessionRequest,
     SubmitResponseRequest,
     AdvanceSessionRequest,
+)
+from backend.api.schemas.auth import (
+    LoginRequest,
+    RegisterUserRequest,
+    UpdateProfileRequest,
+    VerifyEmailRequest,
 )
 from backend.api.schemas.teacher import (
     CreateClassRequest,
@@ -45,6 +51,19 @@ from backend.stores.learner_store import (
     advance_session,
     band_to_cefr,
 )
+from backend.stores.auth_store import (
+    LEARNER_ROLES,
+    auth_metadata,
+    get_user_by_session,
+    link_learner_profile,
+    login,
+    logout,
+    public_user,
+    register_user,
+    update_profile,
+    verify_email,
+)
+from backend.db.bootstrap import init_db
 from backend.data.seed_loader import seed_question_bank
 import random
 
@@ -52,6 +71,7 @@ import random
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ──────────────────────────────────────────────────────────
+    init_db()
     count = seed_question_bank()
     print(f"[startup] Question bank seeded: {count} items loaded.")
     yield
@@ -122,6 +142,159 @@ def pathway_metadata() -> dict:
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+# ============================================================================
+# AUTH + USER MANAGEMENT (Requirement 3.1)
+# ============================================================================
+
+@app.get("/auth/meta")
+def auth_meta() -> dict:
+    return {"status": "ok", **auth_metadata()}
+
+
+@app.post("/auth/register")
+def auth_register(req: RegisterUserRequest) -> dict:
+    try:
+        user, verification_token = register_user(
+            role=req.role,
+            name=req.name,
+            email=req.email,
+            password=req.password,
+            goal=req.goal,
+            pathway=req.pathway,
+            target_band=req.target_band,
+            target_cefr=req.target_cefr,
+            class_code=req.class_code,
+            business_profile=req.business_profile,
+            organization=req.organization,
+            department=req.department,
+            title=req.title,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if user.role in LEARNER_ROLES:
+        learner = create_learner(
+            name=user.name,
+            email=user.email,
+            role=user.role,
+            pathway=user.profile.pathway or "cefr",
+            goal=user.profile.goal or "general_improvement",
+            target_band=user.profile.target_band,
+            target_cefr=user.profile.target_cefr,
+            class_code=user.profile.class_code,
+            business_profile=user.profile.business_profile,
+        )
+        link_learner_profile(user.user_id, learner.learner_id)
+
+    return {
+        "status": "ok",
+        "message": "Registration successful. Verify email before login.",
+        "user": public_user(user),
+        "verification_token": verification_token,
+    }
+
+
+@app.post("/auth/verify-email")
+def auth_verify_email(req: VerifyEmailRequest) -> dict:
+    user = verify_email(req.verification_token)
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token.")
+    return {"status": "ok", "message": "Email verified.", "user": public_user(user)}
+
+
+@app.post("/auth/login")
+def auth_login(req: LoginRequest) -> dict:
+    try:
+        user, token = login(req.email, req.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    return {
+        "status": "ok",
+        "session_token": token,
+        "user": public_user(user),
+    }
+
+
+@app.get("/auth/me")
+def auth_me(x_session_token: str | None = Header(default=None)) -> dict:
+    if not x_session_token:
+        raise HTTPException(status_code=401, detail="Missing x-session-token header.")
+    user = get_user_by_session(x_session_token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired session token.")
+    return {"status": "ok", "user": public_user(user)}
+
+
+@app.patch("/auth/profile")
+def auth_update_profile(req: UpdateProfileRequest, x_session_token: str | None = Header(default=None)) -> dict:
+    if not x_session_token:
+        raise HTTPException(status_code=401, detail="Missing x-session-token header.")
+    user = get_user_by_session(x_session_token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired session token.")
+
+    updated = update_profile(
+        user.user_id,
+        name=req.name,
+        preferences=req.preferences,
+        profile_patch=req.profile_patch,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="User not found.")
+    return {"status": "ok", "user": public_user(updated)}
+
+
+@app.post("/auth/logout")
+def auth_logout(x_session_token: str | None = Header(default=None)) -> dict:
+    if not x_session_token:
+        raise HTTPException(status_code=401, detail="Missing x-session-token header.")
+    ok = logout(x_session_token)
+    if not ok:
+        raise HTTPException(status_code=401, detail="Invalid or expired session token.")
+    return {"status": "ok", "message": "Logged out."}
+
+
+@app.get("/app/overview")
+def app_overview(x_session_token: str | None = Header(default=None)) -> dict:
+    if not x_session_token:
+        raise HTTPException(status_code=401, detail="Missing x-session-token header.")
+    user = get_user_by_session(x_session_token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired session token.")
+
+    payload = {
+        "status": "ok",
+        "user": public_user(user),
+        "role_dashboard": None,
+    }
+
+    linked_learner_id = user.profile.linked_learner_id
+    if user.role in LEARNER_ROLES and linked_learner_id:
+        learner = get_learner(linked_learner_id)
+        sessions = get_learner_sessions(linked_learner_id)
+        progress = get_progress(linked_learner_id)
+        payload["role_dashboard"] = {
+            "kind": "learner",
+            "learner": learner.model_dump() if learner else None,
+            "recent_sessions": [s.model_dump() for s in sessions[-5:]],
+            "progress": [p.model_dump() for p in progress[-10:]],
+        }
+    elif user.role == "teacher":
+        payload["role_dashboard"] = run_monitoring_analytics(
+            user_id=user.user_id,
+            payload={"event_type": "get_classes"},
+            context={},
+        )
+    elif user.role == "recruiter":
+        payload["role_dashboard"] = run_recruiter_screening(
+            user_id=user.user_id,
+            payload={"event_type": "list_packs"},
+            context={},
+        )
+
+    return payload
 
 
 @app.post("/orchestrate", response_model=OrchestrationResponse)
