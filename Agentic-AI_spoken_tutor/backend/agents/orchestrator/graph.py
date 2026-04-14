@@ -18,8 +18,8 @@ def run_orchestration(user_id: str, role: str, event_type: str, payload: dict) -
     context_state = run_context_manager(
         user_id=user_id,
         role=role,
-        resolved_intent=classifier_state["resolved_intent"],
-        routed_agent=classifier_state["routed_agent"],
+        classifier_state=classifier_state,
+        payload=payload,
     )
 
     routed_agent = classifier_state["routed_agent"]
@@ -41,6 +41,11 @@ def run_orchestration(user_id: str, role: str, event_type: str, payload: dict) -
         "message": domain_result.get("message", "Workflow executed"),
         "debug": {
             "intent": classifier_state["resolved_intent"],
+            "sub_intent": classifier_state.get("sub_intent"),
+            "pathway": classifier_state.get("pathway"),
             "confidence": classifier_state["confidence"],
+            "fallback_mode": classifier_state.get("fallback_mode"),
+            "routing_targets": classifier_state.get("routing_targets", []),
+            "policy_flags": classifier_state.get("policy_flags", {}),
         },
     }

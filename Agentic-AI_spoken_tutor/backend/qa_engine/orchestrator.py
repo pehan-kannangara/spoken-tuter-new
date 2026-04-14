@@ -34,6 +34,10 @@ from backend.qa_engine.validators.standards_elicitation import (
 )
 
 
+def _gate_name(gate: object) -> str:
+    return str(getattr(gate, "value", gate))
+
+
 def run_qa_validation_pipeline(
     item: QuestionItem,
     existing_active_items: list[QuestionItem] | None = None,
@@ -122,10 +126,9 @@ def _create_report(
     """
     
     # Check if all required gates passed
-    required_gates = set(AUTO_PUBLISH.get("required_gates", []))
-    results_gates = {result.gate for result in validation_results}
+    required_gates = {_gate_name(gate) for gate in AUTO_PUBLISH.get("required_gates", [])}
     
-    gate_by_name = {result.gate: result for result in validation_results}
+    gate_by_name = {_gate_name(result.gate): result for result in validation_results}
     
     all_required_passed = all(
         gate_by_name.get(gate, ValidationResult(
@@ -146,8 +149,8 @@ def _create_report(
     gate_scores = {}
     for result in validation_results:
         # Each passing gate contributes to score
-        gate_weight = QUALITY_SCORE_WEIGHTS.get(result.gate.value.replace("_", "_"), 0.1)
-        gate_scores[result.gate.value] = 100.0 if result.passed else 0.0
+        gate_name = _gate_name(result.gate)
+        gate_scores[gate_name] = 100.0 if result.passed else 0.0
     
     # Weighted average
     if gate_scores:

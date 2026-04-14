@@ -24,6 +24,56 @@ from backend.qa_engine.store import (
 )
 
 
+def _apply_rubric_policy(report, context: dict):
+    policy = context.get("quality_policy", {}) if isinstance(context, dict) else {}
+    strict_rubric = bool(policy.get("strict_rubric", False))
+    require_human_review = bool(policy.get("require_human_review", False))
+    minimum_quality_score = float(policy.get("minimum_quality_score", 70.0))
+
+    failed_required = [str(getattr(result.gate, "value", result.gate)) for result in report.validation_results if not result.passed]
+    hard_gate_failed = bool(failed_required)
+
+    adjusted_action = report.recommended_action
+    adjusted_overall_pass = report.overall_pass
+
+    if hard_gate_failed or report.quality_score < minimum_quality_score:
+        adjusted_overall_pass = False
+        adjusted_action = "review" if report.quality_score >= 60 else "reject"
+
+    if strict_rubric and report.quality_score < 85 and adjusted_action == "accept":
+        adjusted_overall_pass = False
+        adjusted_action = "review"
+
+    if require_human_review and adjusted_action == "accept":
+        adjusted_overall_pass = False
+        adjusted_action = "review"
+
+    if adjusted_action == report.recommended_action and adjusted_overall_pass == report.overall_pass:
+        return report, {
+            "strict_rubric": strict_rubric,
+            "require_human_review": require_human_review,
+            "minimum_quality_score": minimum_quality_score,
+            "hard_gate_failed": hard_gate_failed,
+            "failed_required_gates": failed_required,
+            "adjusted": False,
+        }
+
+    updated_report = report.model_copy(
+        update={
+            "overall_pass": adjusted_overall_pass,
+            "recommended_action": adjusted_action,
+        }
+    )
+    return updated_report, {
+        "strict_rubric": strict_rubric,
+        "require_human_review": require_human_review,
+        "minimum_quality_score": minimum_quality_score,
+        "hard_gate_failed": hard_gate_failed,
+        "failed_required_gates": failed_required,
+        "adjusted": True,
+    }
+
+
 def run_qa_workflow(user_id: str, event_type: str, payload: dict, context: dict) -> dict:
     """
     Entry point for QA workflows.
@@ -157,6 +207,7 @@ def handle_validate_item(user_id: str, payload: dict, context: dict) -> dict:
         run_all_gates=True,
         user_id=user_id,
     )
+    report, rubric_decision = _apply_rubric_policy(report, context)
     save_report(report)
 
     transitioned, transition_message, updated_lifecycle = apply_validation_report(
@@ -185,6 +236,7 @@ def handle_validate_item(user_id: str, payload: dict, context: dict) -> dict:
         "lifecycle_transitioned": transitioned,
         "lifecycle_message": transition_message,
         "current_status": getattr(updated_lifecycle.current_status, "value", str(updated_lifecycle.current_status)),
+        "rubric_decision": rubric_decision,
     }
 
 

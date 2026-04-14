@@ -3,292 +3,413 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Spoken Tutor Platform</title>
+  <meta name="theme-color" content="#132429" />
+  <title>Spoken Tutor Workspace</title>
   <style>
     :root {
-      --bg: #efe6d7;
-      --bg-2: #f8f4ec;
-      --surface: rgba(255, 252, 245, 0.95);
-      --surface-2: #fff9ef;
-      --ink: #1d2a28;
-      --muted: #596865;
-      --line: #d9cfbf;
-      --accent: #0c6b58;
-      --accent-2: #16423c;
-      --accent-3: #c6712d;
-      --danger: #aa3a18;
-      --ok: #17603d;
-      --shadow: 0 18px 40px rgba(22, 31, 27, 0.12);
+      --bg: #f2eee3;
+      --bg-alt: #e9e1d2;
+      --surface: rgba(255, 252, 246, 0.95);
+      --surface-strong: #fffaf1;
+      --ink: #15272a;
+      --muted: #5b6b6f;
+      --line: #d9ceb7;
+      --brand: #0f6c5a;
+      --brand-strong: #134846;
+      --highlight: #bd6c2b;
+      --danger: #a23b2e;
+      --ok: #1e6a43;
+      --shadow-soft: 0 16px 36px rgba(14, 30, 27, 0.12);
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
     }
+
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       color: var(--ink);
+      font-family: "Aptos", "Bahnschrift", "Trebuchet MS", sans-serif;
       background:
-        radial-gradient(circle at top left, rgba(198, 113, 45, 0.18), transparent 25%),
-        radial-gradient(circle at top right, rgba(12, 107, 88, 0.18), transparent 28%),
-        linear-gradient(180deg, var(--bg), var(--bg-2));
-      font-family: Georgia, "Times New Roman", serif;
+        radial-gradient(1200px 500px at 10% -5%, rgba(189, 108, 43, 0.25), transparent),
+        radial-gradient(900px 420px at 100% -10%, rgba(15, 108, 90, 0.22), transparent),
+        linear-gradient(180deg, var(--bg), var(--bg-alt));
+      min-height: 100vh;
     }
-    .shell {
-      width: min(1200px, calc(100% - 32px));
+
+    .app {
+      width: min(1240px, calc(100% - 28px));
       margin: 0 auto;
-      padding: 24px 0 40px;
-    }
-    .hero {
+      padding: 18px 0 34px;
       display: grid;
-      grid-template-columns: 1.2fr 0.8fr;
-      gap: 18px;
-      align-items: stretch;
+      gap: 16px;
     }
-    .panel, .card {
+
+    .top {
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 16px;
+    }
+
+    .panel,
+    .card {
       background: var(--surface);
       border: 1px solid var(--line);
-      border-radius: 22px;
-      box-shadow: var(--shadow);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-soft);
     }
-    .panel {
-      padding: 24px;
-    }
-    .brand {
-      background: linear-gradient(135deg, rgba(12, 107, 88, 0.96), rgba(22, 66, 60, 0.96));
-      color: #fff9f1;
-      overflow: hidden;
+
+    .panel { padding: 20px; }
+    .card { padding: 16px; }
+
+    .hero {
+      background: linear-gradient(135deg, #134846, #0e7161 55%, #1f8b73);
+      color: #fffaf2;
       position: relative;
+      overflow: hidden;
+      isolation: isolate;
     }
-    .brand::after {
+
+    .hero::before {
       content: "";
       position: absolute;
-      width: 220px;
-      height: 220px;
-      right: -40px;
-      top: -40px;
+      right: -60px;
+      top: -80px;
+      width: 260px;
+      height: 260px;
       border-radius: 50%;
-      background: rgba(255,255,255,0.08);
+      background: rgba(255, 255, 255, 0.12);
+      z-index: -1;
     }
-    h1, h2, h3 { margin: 0; }
-    h1 { font-size: clamp(2rem, 4vw, 3.3rem); line-height: 1.02; }
-    h2 { font-size: 1.2rem; }
-    h3 { font-size: 1rem; }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      left: -90px;
+      bottom: -90px;
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      z-index: -1;
+    }
+
+    .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    .hero .eyebrow { color: #ffe2bf; }
+
+    h1,
+    h2,
+    h3,
     p { margin: 0; }
+
+    h1 {
+      margin-top: 10px;
+      font-size: clamp(1.8rem, 4vw, 3.1rem);
+      line-height: 1.03;
+      font-family: "Palatino Linotype", "Book Antiqua", serif;
+      max-width: 24ch;
+    }
+
+    h2 {
+      font-size: 1.14rem;
+      font-family: "Palatino Linotype", "Book Antiqua", serif;
+    }
+
+    h3 {
+      font-size: 1rem;
+      font-family: "Palatino Linotype", "Book Antiqua", serif;
+    }
+
     .lede {
       margin-top: 14px;
-      max-width: 50ch;
-      color: rgba(255, 249, 241, 0.88);
-      line-height: 1.55;
+      max-width: 58ch;
+      line-height: 1.6;
+      color: rgba(255, 250, 242, 0.92);
     }
-    .chips, .stack, .architecture, .dashboard-grid, .two-up {
+
+    .chip-grid {
+      margin-top: 14px;
       display: grid;
-      gap: 12px;
-    }
-    .chips {
-      margin-top: 18px;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-    .chip {
-      padding: 12px;
-      border-radius: 16px;
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.12);
-      font-size: 0.88rem;
-    }
-    .chip strong { display: block; font-size: 1rem; margin-bottom: 4px; }
-    .meta-box {
-      display: grid;
       gap: 10px;
+    }
+
+    .chip {
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.11);
+      padding: 11px;
+      font-size: 0.83rem;
+      line-height: 1.35;
+    }
+
+    .chip strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.95rem;
+      color: #fff7ea;
+    }
+
+    .runtime {
+      display: grid;
+      gap: 8px;
       align-content: start;
     }
-    .meta-kv {
+
+    .kv {
       display: grid;
-      grid-template-columns: 110px 1fr;
-      gap: 10px;
-      font-size: 0.92rem;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--line);
+      grid-template-columns: 120px 1fr;
+      gap: 8px;
+      align-items: baseline;
+      font-size: 0.9rem;
+      border-bottom: 1px dashed var(--line);
+      padding-bottom: 8px;
     }
-    .meta-kv:last-child { border-bottom: 0; }
-    .section { margin-top: 18px; }
-    .dashboard-grid {
-      margin-top: 18px;
+
+    .kv:last-child { border-bottom: 0; }
+
+    .kv strong {
+      color: var(--brand-strong);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
       grid-template-columns: repeat(12, minmax(0, 1fr));
     }
+
     .span-4 { grid-column: span 4; }
     .span-5 { grid-column: span 5; }
     .span-6 { grid-column: span 6; }
     .span-7 { grid-column: span 7; }
     .span-8 { grid-column: span 8; }
     .span-12 { grid-column: span 12; }
-    .card { padding: 18px; }
-    .eyebrow {
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      font-size: 0.72rem;
-      color: var(--accent-3);
-      font-weight: 700;
+
+    .subtle {
+      color: var(--muted);
+      line-height: 1.55;
+      margin-top: 8px;
     }
-    .subtle { color: var(--muted); line-height: 1.55; }
+
+    .form-grid,
+    .form-grid-3,
+    .two-up {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .form-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .two-up { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .form-grid { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .form-grid-3 { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
     label {
       display: grid;
       gap: 6px;
-      font-size: 0.84rem;
       color: var(--muted);
+      font-size: 0.83rem;
     }
-    input, select, textarea {
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border-radius: var(--radius-sm);
       border: 1px solid var(--line);
       background: white;
-      border-radius: 14px;
-      padding: 11px 12px;
-      font-size: 0.97rem;
       color: var(--ink);
-      width: 100%;
+      padding: 10px 12px;
+      font-size: 0.96rem;
+      font-family: inherit;
     }
-    textarea { min-height: 120px; resize: vertical; font-family: inherit; }
+
+    textarea {
+      min-height: 110px;
+      resize: vertical;
+    }
+
+    .button-row {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
     button {
       border: 0;
       cursor: pointer;
       border-radius: 999px;
-      padding: 11px 16px;
-      font-size: 0.92rem;
+      padding: 10px 15px;
       font-weight: 700;
-      background: var(--accent);
+      font-size: 0.9rem;
       color: #fff;
+      background: var(--brand);
+      transition: transform 120ms ease, opacity 120ms ease;
     }
-    button.alt { background: var(--accent-2); }
+
+    button:hover { transform: translateY(-1px); }
+    button:active { transform: translateY(0); opacity: 0.9; }
+
+    button.alt { background: var(--brand-strong); }
+
     button.ghost {
       background: transparent;
-      border: 1px solid var(--line);
       color: var(--ink);
+      border: 1px solid var(--line);
     }
-    .button-row {
+
+    .status {
+      margin-top: 10px;
+      border: 1px solid #bfdcc7;
+      background: #edf8f2;
+      color: var(--ok);
+      border-radius: var(--radius-md);
+      padding: 11px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.88rem;
+    }
+
+    .status.error {
+      border-color: #e1b5aa;
+      background: #fff0eb;
+      color: var(--danger);
+    }
+
+    .mono { font-family: Consolas, "Courier New", monospace; }
+    .hidden { display: none !important; }
+
+    .pill-list {
       display: flex;
-      gap: 10px;
       flex-wrap: wrap;
-      margin-top: 12px;
-    }
-    .tag-row, .pill-list {
-      display: flex;
       gap: 8px;
-      flex-wrap: wrap;
+      margin-top: 10px;
     }
+
     .pill {
       display: inline-flex;
       align-items: center;
-      padding: 7px 10px;
+      background: #ece3cf;
+      color: #254640;
       border-radius: 999px;
-      background: #efe7d8;
-      color: var(--accent-2);
-      font-size: 0.82rem;
+      padding: 6px 10px;
+      font-size: 0.8rem;
       font-weight: 700;
     }
-    .status {
-      margin-top: 12px;
-      border-radius: 16px;
-      padding: 12px 14px;
-      border: 1px solid #c7e3d1;
-      background: #edf8f2;
-      color: var(--ok);
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-size: 0.9rem;
-    }
-    .status.error {
-      background: #fff1ec;
-      border-color: #e7bba9;
-      color: var(--danger);
-    }
-    .mono { font-family: Consolas, "Courier New", monospace; }
-    .hidden { display: none !important; }
+
     .list {
       margin-top: 10px;
       display: grid;
-      gap: 10px;
+      gap: 8px;
     }
+
     .list-item {
       border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 12px;
-      background: var(--surface-2);
+      border-radius: var(--radius-md);
+      padding: 11px;
+      background: var(--surface-strong);
+      font-size: 0.92rem;
     }
+
     .question-box {
-      margin-top: 12px;
-      padding: 16px;
-      border-radius: 18px;
-      background: #fff8ea;
-      border: 1px solid #e3d8c2;
-    }
-    .architecture {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      margin-top: 14px;
-    }
-    .arch-card {
-      background: linear-gradient(180deg, #fff, #f8f1e7);
-      border: 1px solid var(--line);
-      border-radius: 18px;
+      margin-top: 11px;
+      border-radius: var(--radius-md);
       padding: 14px;
+      border: 1px solid #e2d2b4;
+      background: #fff4df;
     }
-    .arch-card strong { display: block; margin-bottom: 8px; }
-    @media (max-width: 980px) {
-      .hero, .two-up, .form-grid, .form-grid-3, .architecture { grid-template-columns: 1fr; }
-      .span-4, .span-5, .span-6, .span-7, .span-8, .span-12 { grid-column: span 12; }
-      .chips { grid-template-columns: 1fr; }
+
+    .rail-note {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: #fff5e5;
+      padding: 11px;
+      margin-top: 10px;
+      font-size: 0.86rem;
+      color: #5e4b2f;
+    }
+
+    .footer-note {
+      text-align: center;
+      color: #5d6863;
+      font-size: 0.82rem;
+      padding-top: 8px;
+    }
+
+    @media (max-width: 1040px) {
+      .top { grid-template-columns: 1fr; }
+      .chip-grid { grid-template-columns: 1fr; }
+      .span-4,
+      .span-5,
+      .span-6,
+      .span-7,
+      .span-8,
+      .span-12 { grid-column: span 12; }
+      .two-up,
+      .form-grid,
+      .form-grid-3 { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 680px) {
+      .app { width: calc(100% - 16px); }
+      .panel,
+      .card { border-radius: 18px; }
+      .button-row button { width: 100%; }
+      .kv { grid-template-columns: 1fr; gap: 2px; }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <section class="hero">
-      <div class="panel brand">
-        <div class="eyebrow">Full Stack Spoken Tutor</div>
-        <h1>Frontend, backend, database, and product architecture in one running app.</h1>
-        <p class="lede">This build now combines a browser UI, FastAPI application layer, persistent SQL database, seeded QA bank, learner practice flow, teacher tooling, recruiter tooling, and role-based onboarding with Business English support.</p>
-        <div class="chips">
-          <div class="chip"><strong>Frontend</strong>Vanilla SPA served by FastAPI with role-aware flows.</div>
-          <div class="chip"><strong>Backend</strong>FastAPI APIs, agent graphs, services, and orchestration.</div>
-          <div class="chip"><strong>Database</strong>SQLite for local dev, PostgreSQL-ready via DATABASE_URL.</div>
+  <main class="app">
+    <section class="top">
+      <article class="panel hero">
+        <div class="eyebrow">Responsive Workspace</div>
+        <h1>Progressive spoken-English platform for learners, teachers, and recruiters.</h1>
+        <p class="lede">This frontend keeps all active flows in one responsive interface: onboarding, role dashboards, learner sessions, teacher class operations, and recruiter screening workflows with Business English support.</p>
+        <div class="chip-grid">
+          <div class="chip"><strong>Practice Engine</strong>Start sessions, submit responses, and track progress with IELTS or CEFR mapping.</div>
+          <div class="chip"><strong>Teaching Console</strong>Create classes, inspect learner groups, and monitor delivery status.</div>
+          <div class="chip"><strong>Recruiter Hub</strong>Create screening packs and evaluate candidates with role-aligned criteria.</div>
         </div>
-      </div>
-      <div class="panel meta-box">
-        <h2>Runtime</h2>
-        <div class="meta-kv"><strong>API Base</strong><span id="apiBaseEcho">http://127.0.0.1:8001</span></div>
-        <div class="meta-kv"><strong>Docs</strong><span>/docs and /openapi.json</span></div>
-        <div class="meta-kv"><strong>Persistence</strong><span>SQLAlchemy + local SQLite file</span></div>
-        <div class="meta-kv"><strong>Primary Pathways</strong><span>IELTS, CEFR, Business English</span></div>
-        <div class="meta-kv"><strong>Supported Roles</strong><span>Learner, Teacher, Recruiter, Admin, Research</span></div>
-      </div>
+      </article>
+
+      <aside class="panel runtime">
+        <h2>Runtime Overview</h2>
+        <div class="kv"><strong>API Base</strong><span id="apiBaseEcho">http://127.0.0.1:8001</span></div>
+        <div class="kv"><strong>OpenAPI</strong><span>/docs</span></div>
+        <div class="kv"><strong>Pathways</strong><span>IELTS, CEFR, Business English</span></div>
+        <div class="kv"><strong>Roles</strong><span>Learner, Teacher, Recruiter, Admin, Research</span></div>
+        <div class="kv"><strong>Storage</strong><span>SQLAlchemy-backed persistent database</span></div>
+        <div class="rail-note">Progressive behavior: responsive layout, persisted base URL and session token, and role-specific module visibility.</div>
+      </aside>
     </section>
 
-    <section class="dashboard-grid section">
-      <div class="card span-4">
+    <section class="grid">
+      <section class="card span-4">
         <div class="eyebrow">Connection</div>
         <h2>Application Settings</h2>
-        <div class="stack section">
-          <label>API Base URL<input id="baseUrl" value="http://127.0.0.1:8001" /></label>
-        </div>
+        <label>API Base URL<input id="baseUrl" value="http://127.0.0.1:8001" /></label>
         <div class="button-row">
           <button class="ghost" id="metaBtn">Load Metadata</button>
           <button class="ghost" id="healthBtn">Health Check</button>
         </div>
         <div id="metaStatus" class="status hidden mono"></div>
-      </div>
+      </section>
 
-      <div class="card span-8">
-        <div class="eyebrow">Architecture</div>
-        <h2>Project Architecture</h2>
-        <div class="architecture">
-          <div class="arch-card"><strong>Frontend</strong>Single served app with onboarding, role dashboards, practice runner, teacher tools, recruiter tools, and architecture visibility.</div>
-          <div class="arch-card"><strong>API Layer</strong>FastAPI endpoints for auth, learner practice, teacher analytics, recruiter screening, and QA workflows.</div>
-          <div class="arch-card"><strong>Persistence</strong>Database-backed auth store, learner store, session history, QA bank lifecycle, and screening/class records.</div>
-          <div class="arch-card"><strong>Agents</strong>Assessment scoring, feedback generation, monitoring analytics, recruiter screening, and QA orchestration remain modular.</div>
-        </div>
-      </div>
-
-      <div class="card span-6" id="authCard">
+      <section class="card span-8" id="authCard">
         <div class="eyebrow">Access</div>
         <h2>Register or Login</h2>
-        <div class="form-grid section">
+        <div class="form-grid">
           <label>Name<input id="name" value="Demo User" /></label>
           <label>Email<input id="email" value="demo.user@example.com" /></label>
           <label>Password<input id="password" type="password" value="Pass12345!" /></label>
@@ -305,7 +426,7 @@
           </label>
         </div>
 
-        <div id="learnerFields" class="section">
+        <div id="learnerFields">
           <div class="form-grid">
             <label>Goal
               <select id="goal">
@@ -328,7 +449,8 @@
               </select>
             </label>
           </div>
-          <div id="businessFields" class="form-grid section">
+
+          <div id="businessFields" class="form-grid">
             <label>Industry Sector<input id="industry" value="it" /></label>
             <label>Job Function<input id="jobFunction" value="management" /></label>
             <label>Contexts<input id="contexts" value="meetings,presentations,client_calls" /></label>
@@ -349,98 +471,127 @@
           <button class="ghost" id="loginBtn">Login</button>
         </div>
 
-        <div class="section">
-          <label>Verification Token<input id="verifyToken" /></label>
-        </div>
+        <label>Verification Token<input id="verifyToken" /></label>
         <div id="authStatus" class="status hidden"></div>
-      </div>
+      </section>
 
-      <div class="card span-6">
+      <section class="card span-6">
         <div class="eyebrow">Session</div>
         <h2>Account Session</h2>
-        <label class="section">Session Token<input id="sessionToken" /></label>
+        <label>Session Token<input id="sessionToken" /></label>
         <div class="button-row">
           <button id="overviewBtn">Load Overview</button>
           <button class="ghost" id="updateProfileBtn">Update Profile</button>
           <button class="ghost" id="logoutBtn">Logout</button>
         </div>
-        <div class="form-grid section">
+        <div class="form-grid">
           <label>Display Name<input id="displayName" value="Updated Demo User" /></label>
           <label>Timezone<input id="timezone" value="Asia/Colombo" /></label>
         </div>
         <div id="sessionStatus" class="status hidden"></div>
-      </div>
+      </section>
 
-      <div class="card span-12 hidden" id="appCard">
+      <section class="card span-6 hidden" id="appCard">
         <div class="eyebrow">Workspace</div>
         <h2>Role Dashboard</h2>
-        <p class="subtle section">This dashboard switches based on the authenticated role. Learners can start practice sessions, teachers can manage classes, and recruiters can configure screening packs.</p>
-        <div id="overviewPills" class="pill-list section"></div>
-      </div>
+        <p class="subtle">Cards below are role-driven. On login, only the relevant modules are shown for your account role.</p>
+        <div id="overviewPills" class="pill-list"></div>
+      </section>
 
-      <div class="card span-5 hidden" id="learnerCard">
+      <section class="card span-5 hidden" id="learnerCard">
         <div class="eyebrow">Learner</div>
         <h2>Practice Session Runner</h2>
-        <div class="form-grid section">
-          <label>Questions<select id="numQuestions"><option>3</option><option selected>5</option><option>7</option></select></label>
-          <label>Session Type<select id="sessionType"><option selected>practice</option><option>formal_assessment</option></select></label>
+        <div class="form-grid">
+          <label>Questions
+            <select id="numQuestions">
+              <option>3</option>
+              <option selected>5</option>
+              <option>7</option>
+            </select>
+          </label>
+          <label>Session Type
+            <select id="sessionType">
+              <option selected>practice</option>
+              <option>formal_assessment</option>
+            </select>
+          </label>
         </div>
+
         <div class="button-row">
           <button id="startSessionBtn">Start Session</button>
           <button class="ghost" id="loadSummaryBtn">Load Summary</button>
         </div>
+
         <div class="question-box hidden" id="questionBox">
           <div class="eyebrow">Current Question</div>
           <h3 id="questionTitle">No session yet</h3>
-          <p class="subtle section" id="questionText">Start a session to load an assessment question.</p>
+          <p class="subtle" id="questionText">Start a session to load a question.</p>
         </div>
-        <div class="section hidden" id="answerSection">
-          <label>Your spoken transcript<textarea id="answerText" placeholder="Type the learner response here to simulate speech transcription."></textarea></label>
+
+        <div class="hidden" id="answerSection">
+          <label>Your transcript<textarea id="answerText" placeholder="Type the learner response here."></textarea></label>
           <div class="button-row">
             <button id="submitAnswerBtn">Submit Answer</button>
             <button class="alt" id="nextQuestionBtn">Next Question</button>
           </div>
         </div>
-        <div id="practiceStatus" class="status hidden"></div>
-      </div>
 
-      <div class="card span-7 hidden" id="historyCard">
+        <div id="practiceStatus" class="status hidden"></div>
+      </section>
+
+      <section class="card span-7 hidden" id="historyCard">
         <div class="eyebrow">Progress</div>
         <h2>Learner Overview</h2>
-        <div id="learnerSnapshot" class="list section"></div>
-        <div id="sessionHistory" class="list section"></div>
-      </div>
+        <div id="learnerSnapshot" class="list"></div>
+        <div id="sessionHistory" class="list"></div>
+      </section>
 
-      <div class="card span-6 hidden" id="teacherCard">
+      <section class="card span-6 hidden" id="teacherCard">
         <div class="eyebrow">Teacher</div>
         <h2>Class Management</h2>
-        <label class="section">Class Name<input id="className" value="Business English Cohort" /></label>
+        <label>Class Name<input id="className" value="Business English Cohort" /></label>
         <div class="button-row">
           <button id="createClassBtn">Create Class</button>
           <button class="ghost" id="refreshTeacherBtn">Refresh Classes</button>
         </div>
         <div id="teacherStatus" class="status hidden"></div>
-        <div id="teacherClasses" class="list section"></div>
-      </div>
+        <div id="teacherClasses" class="list"></div>
+      </section>
 
-      <div class="card span-6 hidden" id="recruiterCard">
+      <section class="card span-6 hidden" id="recruiterCard">
         <div class="eyebrow">Recruiter</div>
         <h2>Screening Packs</h2>
-        <div class="form-grid section">
+        <div class="form-grid">
           <label>Role Name<input id="packRoleName" value="Customer Success Specialist" /></label>
           <label>Department<input id="packDepartment" value="Operations" /></label>
-          <label>Job Level<select id="packLevel"><option>junior</option><option selected>mid</option><option>senior</option><option>executive</option></select></label>
-          <label>Minimum CEFR<select id="packCefr"><option>a2</option><option>b1</option><option selected>b2</option><option>c1</option></select></label>
+          <label>Job Level
+            <select id="packLevel">
+              <option>junior</option>
+              <option selected>mid</option>
+              <option>senior</option>
+              <option>executive</option>
+            </select>
+          </label>
+          <label>Minimum CEFR
+            <select id="packCefr">
+              <option>a2</option>
+              <option>b1</option>
+              <option selected>b2</option>
+              <option>c1</option>
+            </select>
+          </label>
         </div>
         <div class="button-row">
           <button id="createPackBtn">Create Pack</button>
           <button class="ghost" id="refreshRecruiterBtn">Refresh Packs</button>
         </div>
         <div id="recruiterStatus" class="status hidden"></div>
-        <div id="recruiterPacks" class="list section"></div>
-      </div>
+        <div id="recruiterPacks" class="list"></div>
+      </section>
     </section>
-  </div>
+
+    <div class="footer-note">Spoken Tutor Workspace - Progressive and responsive role-based interface.</div>
+  </main>
 
   <script>
     const ids = (id) => document.getElementById(id);
